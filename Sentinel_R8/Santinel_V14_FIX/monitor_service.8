@@ -1,0 +1,94 @@
+.TH MONITOR_SERVICE 8 "2025-06-22" "Process Monitor Service" "System Administration Utilities"
+.SH NAME
+monitor_service \- Monitorizare și restart automat pentru procese Linux
+.SH SYNOPSIS
+.B monitor_service.sh
+.RI [ --status ]
+.RI [ --restart process ]
+.RI [ --help ]
+.SH DESCRIPTION
+.B monitor_service.sh
+este un serviciu care monitorizează procesele critice definite într-o bază de date MySQL și le repornește automat dacă intră în stare de alarmă. Suportă strategii flexibile de restart, health check, rotație loguri și circuit breaker.
+
+.SH OPTIONS
+.TP
+.B --status
+Afișează procesele aflate în stare de alarmă (alarma=1, sound=0).
+.TP
+.B --restart process
+Forțează restart pentru procesul specificat.
+.TP
+.B --help
+Afișează acest mesaj de ajutor.
+
+.SH CONFIGURATION
+Configurația se face în fișierul INI /opt/monitor_service/config.ini, cu secțiuni pentru:
+- [database]: conexiune MySQL
+- [monitor]: intervale și circuit breaker
+- [logging]: rotație loguri
+- [process.<nume>]: configurare per proces
+
+Exemplu minimal:
+.nf
+[database]
+host = localhost
+user = root
+password = ...
+database = v_process_monitor
+
+[monitor]
+check_interval = 120
+max_restart_failures = 3
+circuit_reset_time = 600
+
+[logging]
+max_log_size = 5120
+log_files_to_keep = 5
+
+[process.sshd]
+restart_strategy = service
+health_check_command = systemctl is-active sshd
+.fi
+
+.SH EXAMPLES
+.TP
+Pornește serviciul ca daemon:
+.nf
+sudo systemctl start monitor_service
+.fi
+.TP
+Afișează procesele în alarmă:
+.nf
+./monitor_service.sh --status
+.fi
+.TP
+Forțează restart pentru sshd:
+.nf
+./monitor_service.sh --restart sshd
+.fi
+.TP
+Afișează ajutorul:
+.nf
+./monitor_service.sh --help
+.fi
+
+.SH FILES
+.TP
+.B /opt/monitor_service/config.ini
+Fișierul principal de configurare.
+.TP
+.B /var/log/monitor_service.log
+Fișierul de log.
+.TP
+.B /etc/systemd/system/monitor_service.service
+Unitatea systemd pentru pornire automată.
+
+.SH AUTHOR
+AD
+
+.SH SEE ALSO
+.BR systemctl (1),
+.BR mysql (1),
+.BR pkill (1),
+.BR journalctl (1)
+

@@ -1,0 +1,17 @@
+[Unit]
+Description=Process Monitor Service
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/monitor_service
+ExecStart=/opt/monitor_service/monitor_service.sh
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=monitor_service
+
+[Install]
+WantedBy=multi-user.target

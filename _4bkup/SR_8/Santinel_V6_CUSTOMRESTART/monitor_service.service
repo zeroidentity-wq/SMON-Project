@@ -1,0 +1,18 @@
+[Unit]
+Description=Process Monitor Service
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/monitor_service
+ExecStart=/opt/monitor_service/monitor_service.sh
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=monitor_service
+
+[Install]
+WantedBy=multi-user.target

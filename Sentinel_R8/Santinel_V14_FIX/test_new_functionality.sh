@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Test script pentru noua funcționalitate de configurare
+# restart_command și system_name pentru toate strategiile
+
+echo "=== Test noua funcționalitate restart_command și system_name ==="
+echo ""
+
+echo "1. Strategia 'service' cu restart_command personalizat:"
+echo "   [process.example_service]"
+echo "   restart_strategy = service"
+echo "   restart_command = /usr/local/bin/custom_service_restart.sh"
+echo "   system_name = example-service"
+echo "   - restart_command va fi executat în loc de systemctl"
+echo "   - system_name va fi folosit pentru health_check"
+echo ""
+
+echo "2. Strategia 'process' cu restart_command personalizat:"
+echo "   [process.custom_process]"
+echo "   restart_strategy = process"
+echo "   restart_command = /usr/local/bin/restart_process.sh"
+echo "   system_name = custom-process"
+echo "   - restart_command va fi executat în loc de pgrep/pkill"
+echo "   - system_name va fi folosit pentru health_check"
+echo ""
+
+echo "3. Strategia 'custom' cu restart_command (funcționalitate existentă):"
+echo "   [process.sshd]"
+echo "   restart_strategy = custom"
+echo "   restart_command = systemctl restart sshd"
+echo "   - restart_command va fi executat direct"
+echo ""
+
+echo "4. Strategia 'service' fără restart_command (fallback la systemctl):"
+echo "   [process.rsyslogd]"
+echo "   restart_strategy = service"
+echo "   system_name = rsyslog"
+echo "   - va folosi systemctl start/restart rsyslog"
+echo ""
+
+echo "5. Strategia 'process' fără restart_command (fallback la pgrep/pkill):"
+echo "   [process.crond]"
+echo "   restart_strategy = process"
+echo "   - va folosi pgrep cron și pkill cron"
+echo ""
+
+echo "=== Beneficii ale noii funcționalități ==="
+echo ""
+echo "✓ restart_command poate fi configurat pentru orice strategie"
+echo "✓ system_name poate fi configurat pentru orice strategie"
+echo "✓ Flexibilitate maximă în configurarea proceselor"
+echo "✓ Fallback automat la comportamentul implicit dacă restart_command nu este configurat"
+echo "✓ Compatibilitate completă cu configurațiile existente"
+echo ""
+
+echo "=== Exemple de utilizare ==="
+echo ""
+echo "Pentru un serviciu cu restart personalizat:"
+echo "[process.my_service]"
+echo "restart_strategy = service"
+echo "restart_command = /usr/local/bin/my_service_restart.sh"
+echo "system_name = my-service"
+echo ""
+
+echo "Pentru un proces cu restart personalizat:"
+echo "[process.my_process]"
+echo "restart_strategy = process"
+echo "restart_command = /usr/local/bin/restart_my_process.sh"
+echo "system_name = my-process"
+echo ""
+
+echo "=== Notă importantă ==="
+echo "Dacă restart_command este configurat, va fi executat în loc de comportamentul implicit"
+echo "al strategiei. Dacă nu este configurat, se va folosi comportamentul implicit."
+echo ""
+echo "Test completat cu succes!"

@@ -1,0 +1,52 @@
+Analizând codul din `monitor_service.sh`, când strategia este setată pe `custom`, comportamentul este următorul:
+
+**Pentru strategia `custom`:**
+
+1. **Dacă serviciul NU rulează** (`! systemctl is-active`):
+   - Se execută `systemctl start` pentru a porni serviciul
+
+2. **Dacă serviciul rulează**:
+   - Se execută `systemctl restart` pentru a restarta serviciul
+
+Iată secțiunea relevantă din cod:
+
+```bash:monitor_service.sh
+case "$strategy" in
+    "custom")
+        # Check for custom restart command
+        local restart_command=$(get_process_config "$process_name" "restart_command" "")
+        if [ -n "$restart_command" ]; then
+            log "INFO" "Executing custom restart command for $process_name: $restart_command"
+            if eval "$restart_command"; then
+                log "INFO" "Custom restart command executed for: $process_name"
+            else
+                log "ERROR" "Custom restart command failed for: $process_name"
+            fi
+        else
+            # fallback to systemctl if no custom command
+            if ! systemctl is-active --quiet "$system_name"; then
+                log "INFO" "Service $system_name is not running. Attempting to start."
+                if systemctl start "$system_name" 2>/dev/null; then
+                    log "INFO" "Service start command executed for: $system_name"
+                else
+                    log "ERROR" "Service start command failed for: $system_name"
+                fi
+            else
+                if systemctl restart "$system_name" 2>/dev/null; then
+                    log "INFO" "Service restart command executed for: $system_name"
+                else
+                    log "ERROR" "Service restart command failed for: $system_name"
+                fi
+            fi
+        fi
+        # ... existing code ...
+```
+
+**Comportamentul exact:**
+
+- **Dacă `restart_command` este configurat** în `config.ini`: se execută comanda custom (fără verificarea stării serviciului)
+- **Dacă `restart_command` NU este configurat**: se folosește fallback-ul la `systemctl`:
+  - `systemctl start` dacă serviciul este oprit
+  - `systemctl restart` dacă serviciul rulează
+
+Deci răspunsul este: **da, pentru strategia `custom` fără `restart_command` configurat, serviciul oprit va fi pornit cu `start`, iar cel care rulează va fi restartat cu `restart`**.

@@ -1,0 +1,106 @@
+.TH MONITOR_SERVICE 8 "June 2025" "Version 1.0" "System Administration Commands"
+.SH NAME
+monitor_service \- Process monitoring and auto-recovery service
+.SH SYNOPSIS
+.B monitor_service
+[\fB\-h\fR]
+[\fB\-c\fR \fIconfig-file\fR]
+.SH DESCRIPTION
+.B monitor_service
+is a daemon that monitors system processes by checking their status in a MySQL database
+and automatically restarts them when they enter an alarm state. It is designed for
+RedHat Linux environments and provides robust process monitoring with circuit breaker
+patterns and configurable health checks.
+.SH OPTIONS
+.TP
+.BR \-h
+Display help and usage information
+.TP
+.BR \-c " \fIconfig-file\fR"
+Specify an alternative configuration file (default: /opt/monitor_service/config.ini)
+.SH CONFIGURATION
+The service uses an INI-style configuration file with the following main sections:
+.TP
+.B [database]
+Database connection settings (host, user, password, database name)
+.TP
+.B [monitor]
+Monitor settings (check interval, circuit breaker parameters)
+.TP
+.B [logging]
+Log rotation and management settings
+.TP
+.B [process.*]
+Process-specific configurations including restart strategies and health checks
+.SH FILES
+.TP
+.I /opt/monitor_service/config.ini
+Main configuration file
+.TP
+.I /var/log/monitor_service.log
+Main log file
+.TP
+.I /etc/systemd/system/monitor_service.service
+Systemd service unit file
+.SH SIGNALS
+.TP
+.B SIGHUP
+Reload configuration
+.TP
+.B SIGTERM
+Graceful shutdown
+.SH DATABASE SCHEMA
+The service expects the following tables in the database:
+.TP
+.B PROCESE
+Contains process definitions (process_id, process_name)
+.TP
+.B STATUS_PROCESS
+Contains process status information (process_id, alarma, sound, notes)
+.SH RESTART STRATEGIES
+The service supports three restart strategies:
+.TP
+.B service
+Uses systemctl for system services
+.TP
+.B process
+Direct process management using signals
+.TP
+.B auto
+Automatically determines the best restart strategy
+.SH CIRCUIT BREAKER
+The service implements a circuit breaker pattern to prevent repeated restart attempts:
+.IP \[bu] 2
+Opens after configured number of failures
+.IP \[bu]
+Remains open for configured reset time
+.IP \[bu]
+Automatically resets after timeout
+.SH LOGGING
+Implements log rotation with configurable:
+.IP \[bu] 2
+Maximum log file size
+.IP \[bu]
+Number of log files to keep
+.IP \[bu]
+Automatic rotation when size limit is reached
+.SH EXAMPLES
+Process-specific configuration example:
+.PP
+.nf
+.RS
+[process.apache2]
+restart_strategy = service
+pre_restart_command = /usr/sbin/apachectl configtest
+health_check_command = systemctl is-active apache2
+health_check_timeout = 10
+.RE
+.fi
+.SH BUGS
+Report bugs to your system administrator or open an issue in the project repository.
+.SH AUTHOR
+Your Organization Name
+.SH SEE ALSO
+.BR systemctl (1),
+.BR systemd.service (5),
+.BR mysql (1)
