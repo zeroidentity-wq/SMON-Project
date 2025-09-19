@@ -52,8 +52,13 @@ read_config() {
     DB_NAME=$(sed -n '/^\[database\]/,/^\[/p' "$CONFIG_FILE" | grep "^database[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     LOG_FORMAT=$(sed -n '/^\[logging\]/,/^\[/p' "$CONFIG_FILE" | grep "^format[[:space:]]*=" | cut -d'=' -f2 | tr 'A-Z' 'a-z' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     JSON_PRETTY=$(sed -n '/^\[logging\]/,/^\[/p' "$CONFIG_FILE" | grep "^json_pretty[[:space:]]*=" | cut -d'=' -f2 | tr 'A-Z' 'a-z' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    HOST_ID=$(sed -n '/^\[host\]/,/^\[/p' "$CONFIG_FILE" | grep "^host_id[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     LOG_FORMAT=${LOG_FORMAT:-text}
     JSON_PRETTY=${JSON_PRETTY:-false}
+    if [ -z "$HOST_ID" ] || ! [[ "$HOST_ID" =~ ^[0-9]+$ ]]; then
+        log "ERROR" "Valoare invalidă sau lipsă pentru host_id în [host]"
+        exit 1
+    fi
 }
 
 # Generează un număr întreg aleator între [min, max]
@@ -79,7 +84,7 @@ random_alarm_once() {
     SET alarma = 1,
         sound = 0,
         notes = CONCAT('Random test at $now')
-    WHERE alarma = 0
+    WHERE alarma = 0 AND host_id = ${HOST_ID}
     ORDER BY RAND()
     LIMIT $count;
 EOF
@@ -119,6 +124,7 @@ show_services() {
            CASE WHEN s.alarma = 1 THEN 'în alarmă' ELSE 'normal' END, ')')
     FROM STATUS_PROCESS s
     JOIN PROCESE p ON s.process_id = p.process_id
+    WHERE s.host_id = ${HOST_ID}
     ORDER BY p.process_id;
 EOF
 }
@@ -133,7 +139,7 @@ set_service_alarm() {
     SET alarma = 1, 
         sound = 0,
         notes = '$notes'
-    WHERE process_id = $process_id;
+    WHERE process_id = $process_id AND host_id = ${HOST_ID};
 EOF
     
     if [ $? -eq 0 ]; then

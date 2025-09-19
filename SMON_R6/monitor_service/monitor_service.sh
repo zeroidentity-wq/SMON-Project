@@ -155,6 +155,9 @@ read_config() {
     DB_PASS=$(sed -n '/^\[database\]/,/^\[/p' "$CONFIG_FILE" | grep "^password[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     DB_NAME=$(sed -n '/^\[database\]/,/^\[/p' "$CONFIG_FILE" | grep "^database[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
 
+    # Parse host section
+    HOST_ID=$(sed -n '/^\[host\]/,/^\[/p' "$CONFIG_FILE" | grep "^host_id[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
     # Parse monitor section
     CHECK_INTERVAL=$(sed -n '/^\[monitor\]/,/^\[/p' "$CONFIG_FILE" | grep "^check_interval[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
     MAX_RESTART_FAILURES=$(sed -n '/^\[monitor\]/,/^\[/p' "$CONFIG_FILE" | grep "^max_restart_failures[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
@@ -181,10 +184,11 @@ read_config() {
     log "DEBUG" "MAX_LOG_SIZE='$MAX_LOG_SIZE'"
     log "DEBUG" "LOG_FILES_TO_KEEP='$LOG_FILES_TO_KEEP'"
     log "DEBUG" "LOG_FORMAT='${LOG_FORMAT}' JSON_PRETTY='${JSON_PRETTY}'"
+    log "DEBUG" "HOST_ID='${HOST_ID}'"
 
     # Validate that we got all required values
     if [ -z "$DB_HOST" ] || [ -z "$DB_USER" ] || [ -z "$DB_PASS" ] || [ -z "$DB_NAME" ] || \
-       [ -z "$CHECK_INTERVAL" ] || [ -z "$MAX_RESTART_FAILURES" ] || [ -z "$CIRCUIT_RESET_TIME" ]; then
+       [ -z "$CHECK_INTERVAL" ] || [ -z "$MAX_RESTART_FAILURES" ] || [ -z "$CIRCUIT_RESET_TIME" ] || [ -z "$HOST_ID" ]; then
         log "ERROR" "Failed to parse one or more configuration values from $CONFIG_FILE"
         exit 1
     fi
@@ -193,13 +197,15 @@ read_config() {
     export DB_HOST DB_USER DB_PASS DB_NAME
     export CHECK_INTERVAL MAX_RESTART_FAILURES CIRCUIT_RESET_TIME
     export MAX_LOG_SIZE LOG_FILES_TO_KEEP LOG_FORMAT JSON_PRETTY
+    export HOST_ID
 
     # Verify values are numeric where required
     if ! [[ "$CHECK_INTERVAL" =~ ^[0-9]+$ ]] || \
        ! [[ "$MAX_RESTART_FAILURES" =~ ^[0-9]+$ ]] || \
        ! [[ "$CIRCUIT_RESET_TIME" =~ ^[0-9]+$ ]] || \
        ! [[ "$MAX_LOG_SIZE" =~ ^[0-9]+$ ]] || \
-       ! [[ "$LOG_FILES_TO_KEEP" =~ ^[0-9]+$ ]]; then
+       ! [[ "$LOG_FILES_TO_KEEP" =~ ^[0-9]+$ ]] || \
+       ! [[ "$HOST_ID" =~ ^[0-9]+$ ]]; then
         log "ERROR" "Invalid numeric values in configuration"
         exit 1
     fi
@@ -236,7 +242,7 @@ EOF
     SELECT CONCAT(p.process_id, '|', p.process_name, '|', s.alarma, '|', s.sound, '|', s.notes)
     FROM STATUS_PROCESS s
     JOIN PROCESE p ON s.process_id = p.process_id
-    WHERE s.alarma = 1 AND s.sound = 0;
+    WHERE s.alarma = 1 AND s.sound = 0 AND s.host_id = ${HOST_ID};
 EOF
 
     # Șterge fișierul temporar imediat după query
@@ -609,7 +615,7 @@ EOF
     mysql --defaults-file="$temp_mysql_config" --connect-timeout=5 --quick --reconnect=FALSE <<EOF
     UPDATE STATUS_PROCESS 
     SET alarma = 0, notes = CONCAT(notes, ' - Restarted at $current_time')
-    WHERE process_id = $process_id;
+    WHERE process_id = $process_id AND host_id = ${HOST_ID};
 EOF
 
     # Șterge fișierul temporar imediat după query

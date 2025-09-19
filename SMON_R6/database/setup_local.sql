@@ -4,7 +4,7 @@ CREATE DATABASE IF NOT EXISTS v_process_monitor;
 -- Use the database
 USE v_process_monitor;
 
--- STATUS_PROCESS (process_id, alarma, sound, notes)
+-- STATUS_PROCESS (process_id, alarma, sound, notes, host_id)
 -- PROCESE (process_id, process_name)
 
 -- Create the STATUS_PROCESS table
@@ -12,7 +12,8 @@ CREATE TABLE IF NOT EXISTS STATUS_PROCESS (
     process_id INT PRIMARY KEY,
     alarma TINYINT NOT NULL DEFAULT 0,
     sound TINYINT NOT NULL DEFAULT 0,
-    notes VARCHAR(100)
+    notes VARCHAR(100),
+    host_id INT NOT NULL DEFAULT 1
 );
 
 -- Create the PROCESE table
@@ -24,20 +25,20 @@ CREATE TABLE IF NOT EXISTS PROCESE (
 
 -- Insert sample data for testing
 -- Sample processes that might exist on a Linux system
--- STATUS_PROCESS: process_id, alarma, sound, notes
-INSERT INTO STATUS_PROCESS (process_id, alarma, sound, notes) VALUES
-(1, 0, 0, 'SSH server'),
-(2, 0, 0, 'Firewall daemon'),
-(3, 0, 0, 'Network Manager'),
-(4, 0, 0, 'System logging daemon'),
-(5, 0, 0, 'NTP client/server'),
-(6, 0, 0, 'PolicyKit authorization manager'),
-(7, 0, 0, 'Printing system'),
-(8, 0, 0, 'Dynamic system tuning daemon'),
-(9, 0, 0, 'Audit daemon'),
-(10, 0, 0, 'Cron daemon'),
-(11, 0, 0, 'Apache HTTP server'),
-(12, 0, 0, 'Podman engine');
+-- STATUS_PROCESS: process_id, alarma, sound, notes, host_id
+INSERT INTO STATUS_PROCESS (process_id, alarma, sound, notes, host_id) VALUES
+(1, 0, 0, 'SSH server', 1),
+(2, 0, 0, 'Firewall daemon', 1),
+(3, 0, 0, 'Network Manager', 1),
+(4, 0, 0, 'System logging daemon', 1),
+(5, 0, 0, 'NTP client/server', 1),
+(6, 0, 0, 'PolicyKit authorization manager', 1),
+(7, 0, 0, 'Printing system', 1),
+(8, 0, 0, 'Dynamic system tuning daemon', 1),
+(9, 0, 0, 'Audit daemon', 1),
+(10, 0, 0, 'Cron daemon', 1),
+(11, 0, 0, 'Apache HTTP server', 1),
+(12, 0, 0, 'Podman engine', 1);
 
 -- PROCESE: process_id, process_name
 INSERT INTO PROCESE (process_id, process_name) VALUES
@@ -56,6 +57,8 @@ INSERT INTO PROCESE (process_id, process_name) VALUES
 
 -- Add an index for faster queries
 CREATE INDEX idx_alarma ON STATUS_PROCESS(alarma);
+CREATE INDEX idx_host_id ON STATUS_PROCESS(host_id);
+CREATE INDEX idx_host_alarma ON STATUS_PROCESS(host_id, alarma);
 
 -- Show the created tables
 SHOW TABLES;
