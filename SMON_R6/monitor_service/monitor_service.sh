@@ -14,6 +14,28 @@ HOST_NAME="$(hostname 2>/dev/null || echo unknown)"
 CONFIG_FILE="config.ini"
 
 ###############################################################################
+# Function: safe_eval
+# Purpose:  Execute a command safely with timeout and error logging.
+# Arguments:
+#   $1 - command string
+#   $2 - timeout seconds (optional, default 10)
+# Returns: exit code of command or 124 on timeout
+###############################################################################
+
+safe_eval() {
+    local cmd="$1"
+    local timeout_sec="${2:-10}"
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$timeout_sec" bash -c "$cmd"
+        return $?
+    else
+        # Fallback without timeout
+        bash -c "$cmd"
+        return $?
+    fi
+}
+
+###############################################################################
 # Function: check_log_rotation
 # Purpose:  Verifică dacă fișierul de log depășește dimensiunea configurată și
 #           dacă este necesară rotirea acestuia.
@@ -175,6 +197,18 @@ read_config() {
     LOG_FORMAT=${LOG_FORMAT:-text}
     JSON_PRETTY=${JSON_PRETTY:-false}
 
+    # Parse self_recovery section
+    HEARTBEAT_FILE=$(sed -n '/^\[self_recovery\]/,/^\[/p' "$CONFIG_FILE" | grep "^heartbeat_file[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    STALE_AFTER_SECONDS=$(sed -n '/^\[self_recovery\]/,/^\[/p' "$CONFIG_FILE" | grep "^stale_after_seconds[[:space:]]*=" | cut -d'=' -f2 | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    SELF_RECOVERY_RESTART_CMD=$(sed -n '/^\[self_recovery\]/,/^\[/p' "$CONFIG_FILE" | grep "^restart_command[[:space:]]*=" | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+    SELF_RECOVERY_PRECHECK_CMD=$(sed -n '/^\[self_recovery\]/,/^\[/p' "$CONFIG_FILE" | grep "^precheck_command[[:space:]]*=" | cut -d'=' -f2- | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+    # Defaults for self recovery
+    HEARTBEAT_FILE=${HEARTBEAT_FILE:-/var/run/monitor_service.heartbeat}
+    STALE_AFTER_SECONDS=${STALE_AFTER_SECONDS:-300}
+    SELF_RECOVERY_RESTART_CMD=${SELF_RECOVERY_RESTART_CMD:-"initctl restart monitor_service || service monitor_service restart || systemctl restart monitor_service"}
+    # PRECHECK may be empty
+
     # Debug output for validation
     log "DEBUG" "Parsed configuration values:"
     log "DEBUG" "DB_HOST='$DB_HOST'"
@@ -198,6 +232,7 @@ read_config() {
     export CHECK_INTERVAL MAX_RESTART_FAILURES CIRCUIT_RESET_TIME
     export MAX_LOG_SIZE LOG_FILES_TO_KEEP LOG_FORMAT JSON_PRETTY
     export HOST_ID
+    export HEARTBEAT_FILE STALE_AFTER_SECONDS SELF_RECOVERY_RESTART_CMD SELF_RECOVERY_PRECHECK_CMD
 
     # Verify values are numeric where required
     if ! [[ "$CHECK_INTERVAL" =~ ^[0-9]+$ ]] || \
@@ -725,6 +760,13 @@ main() {
     read_config
 
     log "INFO" "Starting Process Monitor Service"
+
+    # Ensure heartbeat directory exists and write initial heartbeat
+    hb_dir=$(dirname "$HEARTBEAT_FILE")
+    if [ ! -d "$hb_dir" ]; then
+        mkdir -p "$hb_dir" 2>/dev/null || true
+    fi
+    date +%s > "$HEARTBEAT_FILE" 2>/dev/null || true
     
     # --- CLI argument ---
     if [[ "$1" == "--help" ]]; then
@@ -757,6 +799,9 @@ main() {
 
     while true; do
         start_time=$(date +%s)
+
+        # Update heartbeat at loop start
+        date +%s > "$HEARTBEAT_FILE" 2>/dev/null || true
 
         # Get processes in alarm state
         while IFS='|' read -r process_id process_name alarma sound notes; do
@@ -794,6 +839,10 @@ main() {
         while [ $time_until_next_check -gt 0 ]; do
             sleep 1
             time_until_next_check=$((time_until_next_check - 1))
+            # Refresh heartbeat periodically during countdown (every 5 seconds)
+            if [ $((time_until_next_check % 5)) -eq 0 ]; then
+                date +%s > "$HEARTBEAT_FILE" 2>/dev/null || true
+            fi
             printf "\033[2K\rNext database check in %s seconds\r" "$time_until_next_check"
         done
         echo "" # New line after countdown finishes

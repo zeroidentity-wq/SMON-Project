@@ -126,6 +126,43 @@ sudo systemctl start monitor_service
   ```
 <hr>  
 
+### Self-Recovery (Watchdog + Heartbeat)
+
+Monitorul scrie un heartbeat periodic în `HEARTBEAT_FILE` (configurabil). Un watchdog separat verifică vechimea heartbeat-ului și repornește serviciul dacă acesta devine stătut.
+
+1) Configurare în `config.ini`:
+```ini
+[self_recovery]
+heartbeat_file = /var/run/monitor_service.heartbeat
+stale_after_seconds = 300
+restart_command = initctl restart monitor_service || service monitor_service restart || systemctl restart monitor_service
+precheck_command =
+```
+
+2) Instalare fișiere pe host:
+```bash
+sudo cp monitor_service.sh monitor_watchdog.sh config.ini /opt/monitor_service/
+sudo chmod +x /opt/monitor_service/monitor_service.sh /opt/monitor_service/monitor_watchdog.sh
+sudo cp monitor_service.conf /etc/init/
+sudo cp monitor_watchdog.conf /etc/init/
+```
+
+3) Pornire servicii (Upstart / RHEL6-like):
+```bash
+sudo initctl reload-configuration
+sudo initctl start monitor_service
+# watchdog pornește automat (start on started monitor_service)
+```
+
+4) Verificare funcționare:
+- Loguri watchdog: `/var/log/monitor_service_watchdog.log`
+- Heartbeat: `cat /var/run/monitor_service.heartbeat` (epoch seconds care se actualizează)
+- Test: opriți intenționat `monitor_service` sau blocați-l; după `stale_after_seconds`, watchdog va executa `restart_command`.
+
+5) Note:
+- Directorul din `heartbeat_file` va fi creat automat dacă lipsește.
+- `precheck_command` este opțional (ex. verificări de spațiu pe disc sau rețea) și dacă eșuează, watchdog nu repornește pentru a evita buclele.
+
 #### TO DO Audit modificări fișiere (auditd)
 
 Pentru a înregistra cine și când modifică `monitor_service.sh` sau fișierele de configurare, folosește Linux Audit (auditd). Aceasta oferă detalii precum utilizatorul de login original (auid), procesul care a făcut modificarea, timpul exact și terminalul/IP-ul.
